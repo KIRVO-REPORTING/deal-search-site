@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Deal Search Tool</title>
+    <meta
+      name="description"
+      content="A personal tool for comparing Rakuten Ichiba and Yahoo Shopping products by price, discount, and point rewards."
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <section class="intro" aria-labelledby="site-title">
+        <div class="intro-copy">
+          <p class="eyebrow">Personal shopping data utility</p>
+          <h1 id="site-title">Deal Search Tool</h1>
+          <p class="summary">
+            This site describes a personal product-search utility that compares public shopping data from Rakuten
+            Ichiba and Yahoo Shopping, with a focus on price, discount signals, and point reward rates.
+          </p>
+        </div>
+
+        <div class="preview" aria-label="Example product comparison preview">
+          <div class="preview-header">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <div class="deal-list">
+            <article class="deal-card">
+              <div class="source rakuten">Rakuten</div>
+              <div>
+                <h2>Sample product</h2>
+                <p>Point multiplier and limited sale fields are checked.</p>
+              </div>
+              <strong>10x</strong>
+            </article>
+            <article class="deal-card">
+              <div class="source yahoo">Yahoo</div>
+              <div>
+                <h2>Sample product</h2>
+                <p>Default, fixed, sale price, and PayPay point fields are compared.</p>
+              </div>
+              <strong>30%</strong>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="details" aria-label="Tool details">
+        <div>
+          <h2>Purpose</h2>
+          <p>
+            The utility retrieves product information to identify items with meaningful discounts or high point
+            rewards for personal comparison and analysis.
+          </p>
+        </div>
+        <div>
+          <h2>Data Used</h2>
+          <p>
+            Product names, prices, URLs, review counts, sale indicators, shipping labels, affiliate rates, and point
+            reward fields returned by the official APIs.
+          </p>
+        </div>
+        <div>
+          <h2>Operation</h2>
+          <p>
+            API requests are made from a private local script. No user accounts, passwords, payment data, or order
+            history are collected on this website.
+          </p>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
