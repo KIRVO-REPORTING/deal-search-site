@@ -56,6 +56,10 @@ class DealItem:
     discount_basis: str | None = None
     point_rate: float | None = None
     point_amount: int | None = None
+    coupon_available: bool = False
+    coupon_discount_rate: float | None = None
+    coupon_amount: int | None = None
+    coupon_text: str | None = None
     affiliate_rate: float | None = None
     review_count: int | None = None
     review_average: float | None = None
@@ -211,6 +215,16 @@ POINT_PATTERNS = [
     re.compile(r"(\d{1,3})\s*倍\s*(?:P|ポイント)", re.IGNORECASE),
 ]
 
+COUPON_RATE_PATTERNS = [
+    re.compile(r"(\d{1,2})\s*[%％]\s*(?:OFF|オフ|割引|引き)?\s*クーポン", re.IGNORECASE),
+    re.compile(r"クーポン(?:で|利用で|使用で)?\s*(\d{1,2})\s*[%％]\s*(?:OFF|オフ|割引|引き)", re.IGNORECASE),
+]
+
+COUPON_AMOUNT_PATTERNS = [
+    re.compile(r"([0-9,]{2,7})\s*円\s*(?:OFF|オフ|割引|引き)?\s*クーポン", re.IGNORECASE),
+    re.compile(r"クーポン(?:で|利用で|使用で)?\s*([0-9,]{2,7})\s*円\s*(?:OFF|オフ|割引|引き)", re.IGNORECASE),
+]
+
 
 def discount_rate_from_text(*parts: str | None) -> tuple[float | None, str | None]:
     text = " ".join(part for part in parts if part)
@@ -246,6 +260,35 @@ def point_rate_from_text(*parts: str | None) -> float | None:
     return max(rates)
 
 
+def coupon_from_text(*parts: str | None) -> tuple[bool, float | None, int | None, str | None]:
+    text = " ".join(part for part in parts if part)
+    if not text or "クーポン" not in text:
+        return False, None, None, None
+
+    rate: float | None = None
+    amount: int | None = None
+    if "半額クーポン" in text or "クーポンで半額" in text:
+        rate = 50.0
+
+    for pattern in COUPON_RATE_PATTERNS:
+        for match in pattern.finditer(text):
+            value = as_float(match.group(1))
+            if value is not None and 0 < value < 100:
+                rate = max(rate or 0.0, value)
+
+    for pattern in COUPON_AMOUNT_PATTERNS:
+        for match in pattern.finditer(text):
+            value = as_int(match.group(1).replace(",", ""))
+            if value is not None and value > 0:
+                amount = max(amount or 0, value)
+
+    index = text.find("クーポン")
+    start = max(0, index - 28)
+    end = min(len(text), index + 42)
+    snippet = text[start:end].strip()
+    return True, rate, amount, snippet
+
+
 def score_item(item: DealItem, min_discount_rate: float, min_point_rate: float) -> DealItem:
     reasons: list[str] = []
     discount = item.discount_rate or 0.0
@@ -260,6 +303,13 @@ def score_item(item: DealItem, min_discount_rate: float, min_point_rate: float) 
         reasons.append(f"{points:g}x/≈{points:g}% points")
     elif points > 0:
         reasons.append(f"{points:g}x points")
+
+    if item.coupon_discount_rate:
+        reasons.append(f"{item.coupon_discount_rate:g}% coupon")
+    elif item.coupon_amount:
+        reasons.append(f"{item.coupon_amount:,} yen coupon")
+    elif item.coupon_available:
+        reasons.append("coupon text")
 
     if item.sale_start or item.sale_end:
         reasons.append("limited sale")
@@ -335,6 +385,11 @@ def search_rakuten(
                 item.get("itemName"),
                 item.get("itemCaption"),
             )
+            coupon_available, coupon_rate, coupon_amount, coupon_text = coupon_from_text(
+                item.get("catchcopy"),
+                item.get("itemName"),
+                item.get("itemCaption"),
+            )
             deal = DealItem(
                 source="rakuten",
                 name=str(item.get("itemName") or ""),
@@ -345,6 +400,10 @@ def search_rakuten(
                 discount_rate=discount_rate,
                 discount_basis=discount_basis,
                 point_rate=max([value for value in [api_point_rate, text_point_rate] if value is not None], default=None),
+                coupon_available=coupon_available,
+                coupon_discount_rate=coupon_rate,
+                coupon_amount=coupon_amount,
+                coupon_text=coupon_text,
                 affiliate_rate=as_float(item.get("affiliateRate")),
                 review_count=as_int(item.get("reviewCount")),
                 review_average=as_float(item.get("reviewAverage")),
@@ -412,6 +471,11 @@ def search_yahoo(
         for hit in hits:
             discount_rate, discount_basis = best_yahoo_discount(hit)
             point_rate, point_amount = yahoo_point_rate_and_amount(hit, premium=premium_points)
+            coupon_available, coupon_rate, coupon_amount, coupon_text = coupon_from_text(
+                hit.get("headLine"),
+                hit.get("name"),
+                hit.get("description"),
+            )
             shipping = hit.get("shipping") or {}
             seller = hit.get("seller") or {}
             review = hit.get("review") or {}
@@ -427,6 +491,10 @@ def search_yahoo(
                 discount_basis=discount_basis,
                 point_rate=point_rate,
                 point_amount=point_amount,
+                coupon_available=coupon_available,
+                coupon_discount_rate=coupon_rate,
+                coupon_amount=coupon_amount,
+                coupon_text=coupon_text,
                 affiliate_rate=as_float(hit.get("affiliateRate")),
                 review_count=as_int(review.get("count")),
                 review_average=as_float(review.get("rate")),
@@ -450,6 +518,7 @@ def is_deal(item: DealItem, min_discount_rate: float, min_point_rate: float) -> 
     return (
         (item.discount_rate or 0.0) >= min_discount_rate
         or (item.point_rate or 0.0) >= min_point_rate
+        or item.coupon_available
         or bool(item.sale_start or item.sale_end)
     )
 
@@ -478,18 +547,20 @@ def print_table(items: Iterable[DealItem]) -> None:
         print("No matching items.")
         return
 
-    header = f"{'#':>2} {'src':<7} {'score':>5} {'price':>9} {'off%':>6} {'pt':>5}  {'name'}"
+    header = f"{'#':>2} {'src':<7} {'score':>5} {'price':>9} {'off%':>6} {'pt':>5} {'cpn':>3}  {'name'}"
     print(header)
     print("-" * len(header))
     for index, item in enumerate(rows, 1):
         print(
             f"{index:>2} {item.source:<7} {item.score:>5g} {yen(item.price):>9} "
-            f"{pct(item.discount_rate):>6} {pct(item.point_rate):>5}  {truncate(item.name, 64)}"
+            f"{pct(item.discount_rate):>6} {pct(item.point_rate):>5} {'yes' if item.coupon_available else '-':>3}  {truncate(item.name, 64)}"
         )
         if item.reason:
             print(f"   reason: {item.reason}")
         if item.shop:
             print(f"   shop: {item.shop}")
+        if item.coupon_text:
+            print(f"   coupon: {item.coupon_text}")
         if item.url:
             print(f"   url: {item.url}")
 
@@ -512,6 +583,10 @@ def write_csv(path: Path, items: list[DealItem]) -> None:
         "discount_basis",
         "point_rate",
         "point_amount",
+        "coupon_available",
+        "coupon_discount_rate",
+        "coupon_amount",
+        "coupon_text",
         "affiliate_rate",
         "shop",
         "code",
