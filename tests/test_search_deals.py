@@ -5,6 +5,7 @@ from search_deals import (
     best_yahoo_discount,
     calc_discount_rate,
     discount_rate_from_text,
+    point_rate_from_text,
     score_item,
     yahoo_point_rate_and_amount,
 )
@@ -40,6 +41,11 @@ class DealScoringTest(unittest.TestCase):
     def test_rakuten_text_discount(self):
         self.assertEqual(discount_rate_from_text("期間限定 半額 セール"), (50.0, "text:半額/50%OFF"))
         self.assertEqual(discount_rate_from_text("今だけ30%OFF"), (30.0, "text"))
+
+    def test_rakuten_text_points(self):
+        self.assertEqual(point_rate_from_text("7/1限定 P10倍"), 10.0)
+        self.assertEqual(point_rate_from_text("ポイント 20倍 キャンペーン"), 20.0)
+        self.assertEqual(point_rate_from_text("10倍ポイント"), 10.0)
 
     def test_score_combines_discount_points_and_sale(self):
         item = DealItem(

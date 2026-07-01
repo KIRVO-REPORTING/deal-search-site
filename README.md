@@ -53,7 +53,7 @@ python3 search_deals.py "イヤホン" --format json --output deals.json
 ## 判定逻辑
 
 - Yahoo Shopping: 使用 `priceLabel.defaultPrice`、`priceLabel.fixedPrice`、`priceLabel.discountedPrice`、`premiumDiscountRate` 计算折扣率；ポイント优先读取 2025 年后推荐的 `lyLimitedBonusTimes` / `lyLimitedBonusAmount` 字段。
-- Rakuten: 官方商品搜索结果有 `pointRate`、`startTime`、`endTime`，但没有稳定的“原价 vs 现价”字段；因此折扣只通过标题、catchcopy、caption 中的 `50%OFF`、`半額`、`30%OFF` 等文案做启发式识别。
+- Rakuten: 官方商品搜索结果有 `pointRate`、`startTime`、`endTime`，但没有稳定的“原价 vs 现价”字段；因此折扣会通过标题、catchcopy、caption 中的 `50%OFF`、`半額`、`30%OFF` 等文案做启发式识别，ポイント也会额外识别 `P10倍`、`ポイント10倍` 这类促销文案。
 - 默认只显示满足任一条件的商品：折扣率 >= `--min-discount-rate`、ポイント >= `--min-point-rate`、或 API 返回限时 sale 字段。加 `--show-all` 可以看全部打分结果。
 
 ## 常用参数

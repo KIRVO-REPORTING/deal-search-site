@@ -206,6 +206,11 @@ PERCENT_PATTERNS = [
     re.compile(r"(\d{1,2})\s*割引"),
 ]
 
+POINT_PATTERNS = [
+    re.compile(r"(?:P|ポイント)\s*(\d{1,3})\s*倍", re.IGNORECASE),
+    re.compile(r"(\d{1,3})\s*倍\s*(?:P|ポイント)", re.IGNORECASE),
+]
+
 
 def discount_rate_from_text(*parts: str | None) -> tuple[float | None, str | None]:
     text = " ".join(part for part in parts if part)
@@ -223,6 +228,22 @@ def discount_rate_from_text(*parts: str | None) -> tuple[float | None, str | Non
     if not rates:
         return None, None
     return max(rates), "text"
+
+
+def point_rate_from_text(*parts: str | None) -> float | None:
+    text = " ".join(part for part in parts if part)
+    if not text:
+        return None
+
+    rates: list[float] = []
+    for pattern in POINT_PATTERNS:
+        for match in pattern.finditer(text):
+            value = as_float(match.group(1))
+            if value is not None and 0 < value < 100:
+                rates.append(value)
+    if not rates:
+        return None
+    return max(rates)
 
 
 def score_item(item: DealItem, min_discount_rate: float, min_point_rate: float) -> DealItem:
@@ -308,6 +329,12 @@ def search_rakuten(
                 item.get("itemName"),
                 item.get("itemCaption"),
             )
+            api_point_rate = as_float(item.get("pointRate"))
+            text_point_rate = point_rate_from_text(
+                item.get("catchcopy"),
+                item.get("itemName"),
+                item.get("itemCaption"),
+            )
             deal = DealItem(
                 source="rakuten",
                 name=str(item.get("itemName") or ""),
@@ -317,7 +344,7 @@ def search_rakuten(
                 code=item.get("itemCode"),
                 discount_rate=discount_rate,
                 discount_basis=discount_basis,
-                point_rate=as_float(item.get("pointRate")),
+                point_rate=max([value for value in [api_point_rate, text_point_rate] if value is not None], default=None),
                 affiliate_rate=as_float(item.get("affiliateRate")),
                 review_count=as_int(item.get("reviewCount")),
                 review_average=as_float(item.get("reviewAverage")),
