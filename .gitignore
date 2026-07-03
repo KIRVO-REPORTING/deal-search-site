@@ -3,4 +3,6 @@ __pycache__/
 *.pyc
 *.csv
 *.json
+.codex-assets/
+.playwright-cli/
 !.env.example
